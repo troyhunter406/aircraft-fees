@@ -70,7 +70,6 @@
     <tbody id="results"></tbody>
   </table>
 
-  <!-- Load aircraft data -->
   <script src="aircraftData.corrected.js"></script>
 
   <script>
@@ -106,11 +105,7 @@
       return `$${Number(value).toLocaleString()}`;
     }
 
-    function formatNumber(value) {
-      if (value === null || value === undefined || value === "") return "—";
-      return Number(value).toLocaleString();
-    }
-
+    // 🔑 Merge duplicate aircraft rows into one
     function mergeAircraftData(data) {
       const map = new Map();
 
@@ -174,6 +169,18 @@
 
         row.innerHTML = `
           <td>${item.model}</td>
-          <td>${formatNumber(item.minFuel)}</td>
+          <td>${formatMoney(item.minFuel)}</td>
           <td>${formatMoney(item.facilityFee)}</td>
-          <td>${formatMoney(item.hand
+          <td>${formatMoney(item.handlingFee)}</td>
+          <td>${formatMoney(item.hangar)}</td>
+          <td>${formatMoney(item["NetJets Hangar"])}</td>
+          <td>${formatMoney(item["NetJets Security Fee"])}</td>
+        `;
+
+        tbody.appendChild(row);
+      });
+    }
+  </script>
+
+</body>
+</html>
