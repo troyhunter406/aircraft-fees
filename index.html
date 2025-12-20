@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Aircraft Fee Search</title>
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      max-width: 1200px;
+      margin: auto;
+    }
+
+    input {
+      width: 100%;
+      padding: 12px;
+      font-size: 16px;
+      margin-bottom: 16px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    thead th {
+      position: sticky;
+      top: 0;
+      background: #f3f3f3;
+      z-index: 2;
+      border-bottom: 2px solid #bbb;
+    }
+
+    th, td {
+      padding: 10px;
+      border: 1px solid #ddd;
+      text-align: left;
+      white-space: nowrap;
+    }
+
+    tbody tr:nth-child(even) {
+      background-color: #fafafa;
+    }
+  </style>
+</head>
+<body>
+
+  <h2>Aircraft Search</h2>
+
+  <input
+    type="text"
+    id="searchInput"
+    placeholder="Search aircraft (KA90, King Air 90, B100, Westwind)"
+    oninput="searchAircraft()"
+  />
+
+  <table>
+    <thead>
+      <tr>
+        <th>Aircraft</th>
+        <th>Minimum Fuel</th>
+        <th>Facility Fee</th>
+        <th>Handling Fee</th>
+        <th>Hangar</th>
+        <th>NetJets Hangar</th>
+        <th>NetJets Security Fee</th>
+      </tr>
+    </thead>
+    <tbody id="results"></tbody>
+  </table>
+
+  <script src="aircraftData.corrected.js"></script>
+
+  <script>
+    function normalize(text) {
+      return text.toLowerCase();
+    }
+
+    function tokenize(text) {
+      return normalize(text)
+        .replace(/[^a-z0-9]/g, " ")
+        .split(/\s+/)
+        .filter(Boolean);
+    }
+
+    function buildAliases(model) {
+      const tokens = tokenize(model);
+      const aliases = new Set(tokens);
+
+      aliases.add(tokens.join(""));
+
+      const numbers = tokens.filter(t => /^\d+$/.test(t)).join("");
+      if (numbers) {
+        aliases.add(numbers);
+        aliases.add("ka" + numbers);
+        aliases.add("ww" + numbers);
+      }
+
+      return [...aliases];
+    }
+
+    function formatMoney(value) {
+      if (value === null || value === undefined || value === "") return "—";
+      return `$${Number(value).toLocaleString()}`;
+    }
+
+    // 🔑 Merge duplicate aircraft rows into one
+    function mergeAircraftData(data) {
+      const map = new Map();
+
+      data.forEach(item => {
+        const key = item.model;
+
+        if (!map.has(key)) {
+          map.set(key, { ...item });
+        } else {
+          const existing = map.get(key);
+          Object.keys(item).forEach(field => {
+            if (
+              existing[field] === null ||
+              existing[field] === undefined
+            ) {
+              existing[field] = item[field];
+            }
+          });
+        }
+      });
+
+      return [...map.values()];
+    }
+
+    const mergedAircraftData = mergeAircraftData(aircraftData);
+
+    function scoreMatch(inputTokens, aliases) {
+      let score = 0;
+
+      for (const token of inputTokens) {
+        for (const alias of aliases) {
+          if (alias === token) score += 10000;
+          else if (alias.startsWith(token)) score += 3000;
+          else if (alias.includes(token)) score += 1000;
+        }
+      }
+
+      return score;
+    }
+
+    function searchAircraft() {
+      const rawInput = document.getElementById("searchInput").value.trim();
+      const tbody = document.getElementById("results");
+      tbody.innerHTML = "";
+
+      if (!rawInput) return;
+
+      const inputTokens = tokenize(rawInput);
+
+      const ranked = mergedAircraftData
+        .map(item => {
+          const aliases = buildAliases(item.model);
+          const score = scoreMatch(inputTokens, aliases);
+          return { ...item, score };
+        })
+        .filter(item => item.score > 0)
+        .sort((a, b) => b.score - a.score);
+
+      ranked.forEach(item => {
+        const row = document.createElement("tr");
+
+        row.innerHTML = `
+          <td>${item.model}</td>
+          <td>${formatMoney(item.minFuel)}</td>
+          <td>${formatMoney(item.facilityFee)}</td>
+          <td>${formatMoney(item.handlingFee)}</td>
+          <td>${formatMoney(item.hangar)}</td>
+          <td>${formatMoney(item["NetJets Hangar"])}</td>
+          <td>${formatMoney(item["NetJets Security Fee"])}</td>
+        `;
+
+        tbody.appendChild(row);
+      });
+    }
+  </script>
+
+</body>
+</html>
